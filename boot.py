@@ -45,7 +45,7 @@ global speed_kp
 global speed_ki
 speed_kp = 10
 speed_ki = 4
-
+OutSpeed = 0
 OutPut = 0
 # # # # # # # # # # # # # # # 电机# # # # # # # # # # # # # # # 
 
@@ -108,7 +108,7 @@ pit1.start(3)
 pit2 = ticker(1)
 pit2.capture_list(encoder_l, encoder_r)
 pit2.callback(time_pit_handler2)
-pit2.start(2)
+pit2.start(5)
 
 pit3 = ticker(2)
 pit3.capture_list(key)
@@ -123,11 +123,11 @@ pit4.start(2)
 # # # # # # # # # # # # # # # 定时中断
 
 def direction_outter(error):
-
+    
     return error
 
 def direction_inner(error):
-
+    
     return error
 
 
@@ -152,8 +152,8 @@ def MotorSpeedGet(encl_data,encr_data):
 
 def speed_loop(speed_True):
     aim_speed = 0
-    speed_kp = 10
-    speed_ki = 4
+    speed_kp = 10  #减少震荡
+    speed_ki = 4   #程度
     OutPutMaxLimit = 4000
     OutPutMinLimit = -4000
     error = speed_True - aim_speed
@@ -165,7 +165,7 @@ def speed_loop(speed_True):
     ErrorDtFifo = [0, 0, 0]
     ErrorDtFifo[2] = ErrorDtFifo[1]
     ErrorDtFifo[1] = ErrorDtFifo[0]
-    ErrorDtFifo[0] = ErrorFifo[0] - ErrorFifo[2]
+    ErrorDtFifo[0] = ErrorFifo[0] - ErrorFifo[1]
     global OutPut
     OutPut += speed_kp * ErrorDtFifo[0] + speed_ki * error
     
@@ -174,6 +174,33 @@ def speed_loop(speed_True):
     if OutPut <= OutPutMinLimit:
         OutPut = OutPutMinLimit
     return OutPut
+
+
+
+def Len_loop(Len_True):
+    aim_Len = 100 * ((4600+4500)/2)
+    Len_kp = 2  #减少震荡
+    Len_ki = 1   #程度
+    OutPutMaxLimit = 300
+    OutPutMinLimit = -300
+    error = Len_True - aim_Len
+    ErrorFifo = [0, 0, 0]
+    ErrorFifo[2] = ErrorFifo[1]
+    ErrorFifo[1] = ErrorFifo[0]
+    ErrorFifo[0] = error
+    
+    ErrorDtFifo = [0, 0, 0]
+    ErrorDtFifo[2] = ErrorDtFifo[1]
+    ErrorDtFifo[1] = ErrorDtFifo[0]
+    ErrorDtFifo[0] = ErrorFifo[0] - ErrorFifo[1]
+    global OutSpeed
+    OutSpeed += Len_kp * ErrorDtFifo[0] + Len_ki * error
+    
+    if OutSpeed >= OutPutMaxLimit:
+        OutSpeed = OutPutMaxLimit
+    if OutSpeed <= OutPutMinLimit:
+        OutSpeed = OutPutMinLimit
+    return OutSpeed
 
 # 需要注意的是 ticker 是底层驱动的 这导致 Thonny 的 Stop 命令在这个固件版本中无法停止它
 # 因此一旦运行了使用了 ticker 模块的程序 要么通过复位核心板重新连接 Thonny
@@ -205,7 +232,9 @@ while True:
         encr_data = encoder_r.get()
         allencl_data = allencl_data + encl_data
         allencr_data = allencr_data + encr_data
-        speed_TrueM = MotorSpeedGet(encl_data,encr_data)
+        allenc_data  = ( allencl_data + allencr_data )/2
+        #speed_TrueM = MotorSpeedGet(encl_data,encr_data)
+        speed_TrueM = Len_loop(allenc_data)
         out = speed_loop(speed_TrueM)
         if motor_dir == 1 and out > 0:
             motor_duty = out
@@ -266,6 +295,9 @@ while True:
 
 
  
+
+
+
 
 
 
